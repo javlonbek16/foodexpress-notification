@@ -51,7 +51,8 @@ app = FastAPI(title="FoodExpress - Notification Service", version="1.0.0", lifes
 
 origins = [
     "http://localhost:3000",  
-    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3000",  
+    "http://127.0.0.1:5173",
     "*",                      
 ]
 
