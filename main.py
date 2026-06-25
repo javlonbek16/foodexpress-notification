@@ -22,6 +22,8 @@ from schemas import NotificationResponse
 from security import CurrentUser, PermissionChecker
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 load_dotenv()
 
@@ -67,6 +69,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal error: {type(exc).__name__}: {str(exc)}"},
+    )
 
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health_check():
