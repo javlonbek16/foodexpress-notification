@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, BigInteger
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -8,9 +8,9 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
     order_id = Column(UUID(as_uuid=True), nullable=False)
-    type = Column(String, nullable=False) # ORDER_CREATED / STATUS_CHANGED
+    type = Column(String, nullable=False)
     title = Column(String, nullable=False)
     body = Column(String, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)

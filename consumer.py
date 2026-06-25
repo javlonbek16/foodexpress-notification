@@ -57,7 +57,14 @@ async def _persist_event(event_id, event_type, data):
 
     Returns an email_metadata tuple on success, or None when there's nothing to
     email (duplicate / unknown type). Raises on failure so the caller can decide
-    whether to retry."""
+    whether to retry.
+
+    NOTE on ID types (post-migration):
+      - order_id   -> UUID  (unchanged, Order Service still issues UUID order IDs)
+      - event_id   -> UUID  (unchanged, internal idempotency key)
+      - customerId / restaurantId / courierId -> int (CHANGED to match the
+        Auth Service's integer user IDs and the new Notification.user_id column)
+    """
     async with AsyncSessionLocal() as db:
         # Idempotency: did we already COMMIT this event before?
         existing = await db.execute(select(ProcessedEvent).filter_by(event_id=event_id))
@@ -65,8 +72,8 @@ async def _persist_event(event_id, event_type, data):
             logger.warning(f"⚠️ [DUPLICATE] Already processed, skipping: {event_id}")
             return None
 
-        order_id = uuid.UUID(data["orderId"])
-        customer_id = uuid.UUID(data["customerId"])
+        order_id = uuid.UUID(data["orderId"])       # still UUID
+        customer_id = int(data["customerId"])        # now int
         customer_email = data.get("customerEmail")
         items = data.get("items", [])
         total_price = data.get("totalPrice", 0)
@@ -86,7 +93,7 @@ async def _persist_event(event_id, event_type, data):
                 email_metadata = (customer_email, title, body_text, str(order_id), items, total_price, currency)
             if data.get("restaurantId"):
                 notifications.append(Notification(
-                    user_id=uuid.UUID(data["restaurantId"]), order_id=order_id,
+                    user_id=int(data["restaurantId"]), order_id=order_id,
                     type="ORDER_CREATED", title="Yangi Buyurtma Keldi!",
                     body=f"Restoraningizga yangi buyurtma tushdi (ID: {str(order_id)[:8]}).",
                 ))
@@ -103,7 +110,7 @@ async def _persist_event(event_id, event_type, data):
                 email_metadata = (customer_email, title, body_text, str(order_id), items, total_price, currency)
             if data.get("courierId"):
                 notifications.append(Notification(
-                    user_id=uuid.UUID(data["courierId"]), order_id=order_id,
+                    user_id=int(data["courierId"]), order_id=order_id,
                     type="STATUS_CHANGED", title="Sizga buyurtma biriktirildi",
                     body=f"Buyurtmani mijozga yetkazishni boshlang (ID: {str(order_id)[:8]}).",
                 ))
@@ -141,7 +148,12 @@ async def process_event(message: aio_pika.IncomingMessage):
     try:
         email_metadata = await _persist_event(event_id, event_type, data)
     except (KeyError, ValueError, TypeError) as e:
-        # Bad payload SHAPE (e.g. missing data.orderId). Retrying won't fix it -> drop.
+        # Bad payload SHAPE (e.g. missing data.orderId, or customerId isn't a
+        # valid int after the integer-ID migration). Retrying won't fix it -> drop.
+        # IMPORTANT: if real events still send UUID strings for customerId /
+        # restaurantId / courierId, int(...) will raise ValueError HERE and the
+        # event gets silently dropped with no notification ever created.
+        # Confirm the Order Service's actual payload shape before relying on this.
         logger.error(f"🧨 [POISON] Bad event shape for {event_id}, dropping: {e}")
         await message.ack()
         return
