@@ -80,7 +80,7 @@ async def get_my_notifications(
     current_user: CurrentUser = Depends(PermissionChecker("order.read.own"))
 ):
     # current_user.id ichida avtomat ravishda token ichidagi 'sub' (userId) bo'ladi
-    user_id = UUID(current_user.id) 
+    user_id = current_user.id
     
     result = await db.execute(
         select(Notification)
@@ -96,7 +96,7 @@ async def mark_notification_as_read(
     # Bu erda ham eshikni 'order.read.own' orqali ochamiz
     current_user: CurrentUser = Depends(PermissionChecker("order.read.own"))
 ):
-    user_id = UUID(current_user.id)
+    user_id = current_user.id
     
     # Faqat so'rov yuborgan user_id va bildirishnoma ID si mos kelsagina ma'lumotni topadi
     result = await db.execute(select(Notification).filter_by(id=id, user_id=user_id))
