@@ -31,12 +31,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         return payload
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired authentication token")
-    
-
-
-
-
-
 
 security_bearer = HTTPBearer()
 
